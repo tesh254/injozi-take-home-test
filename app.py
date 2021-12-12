@@ -28,7 +28,7 @@ app.config["MONGODB_SETTINGS"] = {
 }
 db = MongoEngine()
 db.init_app(app)
-app.config["JWT_SECRET_KEY"] = "super-secret"  # Change this!
+app.config["JWT_SECRET_KEY"] = os.environ.get('SECRET_KEY')  # Change this!
 jwt = JWTManager(app)
 bcrypt = Bcrypt(app)
 
@@ -49,7 +49,7 @@ def register():
 
     # handle error if email and password are provided
     if (request_data['email'] == "" or request_data['password'] == ""):
-        return jsonify({"message": "Username and password are required"}), 400
+        return jsonify({"message": "email and password are required"}), 400
 
     # check if email is valid
     if (check(request_data['email']) == False):
@@ -73,8 +73,8 @@ def register():
                 password=bcrypt.generate_password_hash(request_data['password']), created=time, updated=time).save()
 
     # create new profile
-    profile = Profile(id_user=user.id, name=request_data['name'],
-                      surname=request_data['surname'], phone=request_data['phone'], created=time, updated=time).save()
+    Profile(id_user=user.id, name=request_data['name'],
+            surname=request_data['surname'], phone=request_data['phone'], created=time, updated=time).save()
 
     access_token = create_access_token(identity=str(user.id))
 
@@ -87,24 +87,79 @@ def register():
 
 @app.route('/api/v1/login', methods=['POST'])
 def login():
-    return jsonify(request.get_json())
+    request_data = request.get_json()
+
+    # check if email and password were provided
+    if (request_data['email'] == '' and request_data['password'] == ''):
+        return jsonify({"message": "email and password are required"}), 400
+
+    # check if email is valid
+    if (check(request_data['email']) == False):
+        return jsonify({"message": "Email is not valid"}), 400
+
+    # check if password is long enough
+    if (len(request_data['password']) < 6):
+        return jsonify({"message": "Password is too short"}), 400
+
+    # get user by email
+    existing_user = User.objects(email=request_data['email']).first()
+
+    if (existing_user is None):
+        return jsonify({"message": "Account not found"}), 404
+
+    # check if password to account is correct
+    pass_hash_result = bcrypt.check_password_hash(
+        existing_user.password, request_data['password'])
+
+    if (pass_hash_result is False):
+        return jsonify({'message': 'Email or password is incorrect'}), 401
+
+    # generate access token from id
+    access_token = create_access_token(identity=str(existing_user.id))
+
+    return jsonify(access_token=access_token, message='Log in successful'), 200
 
 
 @app.route('/api/v1/profile', methods=['GET'])
 @jwt_required()
 def profile():
     current_user = get_jwt_identity()
-    return jsonify(current_user)
+
+    existing_user = User.objects(id=current_user).first()
+
+    if existing_user is None:
+        return jsonify(message='Account does not exist'), 401
+
+    existing_profile = Profile.objects(id_user=existing_user).first()
+
+    return jsonify({
+        "name": existing_profile['name'],
+        'surname': existing_profile['surname'],
+        'email': existing_user['email'],
+        'phone': existing_profile['phone']
+    }), 200
+
+@app.route('/api/v1/profiles', methods=['GET'])
+def list_profiles():
+    profiles = Profile.objects().all_fields()
+
+    return jsonify(profiles=profiles)
 
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({'error': 'Endpoint Not found', 'status': 404})
+    return jsonify({'error': 'Endpoint Not found', 'status': 404}), 404
 
 
 @app.errorhandler(400)
 def bad_request(error):
-    return jsonify({'error': 'Bad Request, please try again', 'status': 400})
+    return jsonify({'error': 'Bad Request, please try again', 'status': 400}), 400
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    print(error)
+    return jsonify({'error': 'Internal Server Error', 'status': 500}), 500
 
 
 if (__name__ == "__main__"):
