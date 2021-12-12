@@ -8,8 +8,8 @@ db = MongoEngine()
 class User(db.Document):
     email = db.StringField(required=True, unique=True)
     password = db.StringField(required=True, min_length=6)
-    created = db.DateTimeField(default=db.datetime.now, required=True)
-    updated = db.DateTimeField(default=db.datetime.now, required=True)
+    created = db.DateTimeField(required=True)
+    updated = db.DateTimeField(required=True)
 
 
 class Profile(db.Document):
@@ -17,5 +17,5 @@ class Profile(db.Document):
     name = db.StringField()
     surname = db.StringField()
     phone = db.StringField()
-    created = db.DateTimeField(default=db.datetime.now, required=True)
-    updated = db.DateTimeField(default=db.datetime.now, required=True)
+    created = db.DateTimeField(required=True)
+    updated = db.DateTimeField(required=True)
