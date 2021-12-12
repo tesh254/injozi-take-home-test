@@ -82,7 +82,7 @@ def register():
         "user": {
             "email": user.email
         },
-        "token": access_token}), 201
+        "access_token": access_token}), 201
 
 
 @app.route('/api/v1/login', methods=['POST'])
